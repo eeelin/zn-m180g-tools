@@ -1,0 +1,34 @@
+Build/validation date: 2026-09-18
+Device: ZN-M180G / ZX279128S / Linux 4.1.25 / ARMv7 soft-float
+
+Device inspection:
+  Telnet commands only read CPU, kernel, library, mount, memory,
+  account metadata, directory permissions and executable ELF header.
+  No uploads, installations, chmod/chown, mounts or daemon starts on device.
+  Telnet session exited after inspection.
+
+Artifact:
+  Dropbear 2026.94 server + dropbearkey multicall binary
+  ELF32 little-endian ARM, EABI5 soft-float
+  No PT_INTERP or dynamic-library dependency
+  Non-executable GNU_STACK, GNU_RELRO present
+  GCC 14.3.0, musl 1.2.5, -march=armv7-a -marm -mfloat-abi=soft
+
+Local QEMU 6.2, qemu-arm-static -cpu cortex-a9:
+  Version/help: PASS
+  Ed25519 host-key generation: PASS
+  OpenSSH client -> ARM Dropbear, non-root public-key authentication: PASS
+  Remote command execution (id and marker), exit 0: PASS
+  Wrong public key rejected, exit 255: PASS
+  Wrong user rejected, exit 255: PASS
+  Group/other-writable auth directory rejected, exit 255: PASS
+  Start/build shell script syntax: PASS
+
+Limits:
+  QEMU user-mode uses the host kernel, not the device's Linux 4.1.25.
+  ARM self-reexec under QEMU without binfmt registration reports Exec format
+  error and Dropbear successfully uses its upstream fork fallback. Native
+  self-reexec was not tested on the device.
+  Device has no mounted devpts; current csp user should use ssh -T.
+  No on-device execution, SSH authentication or PTY tests were performed.
+  No client private key, host private key, or device password in deliverables.
