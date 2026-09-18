@@ -25,7 +25,7 @@ with tarfile.open(OUT / 'zn-m180g-ssh.tar.gz', 'w:gz') as tar:
     for n in names + ['SHA256SUMS']:
         tar.add(PKG / n, arcname=n)
 with tarfile.open(OUT / 'zn-m180g-ssh-source.tar.gz', 'w:gz') as tar:
-    for n in ['README.md', 'sources.sha256', 'scripts', 'config', 'docs',
+    for n in ['README.md', 'install.sh', 'sources.sha256', 'scripts', 'config', 'docs',
               'packaging', 'licenses', 'downloads/dropbear-2026.94.tar.bz2']:
         tar.add(ROOT / n, arcname=n, filter=lambda i: None if '__pycache__' in i.name else i)
 for n in ['zn-m180g-ssh.tar.gz', 'zn-m180g-ssh-source.tar.gz']:

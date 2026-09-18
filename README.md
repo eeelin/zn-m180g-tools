@@ -7,6 +7,28 @@
 - 使用现有 `csp` 用户和公钥认证，默认监听 `192.168.1.1:2222`。
 - 不包含设备账号密码、登录私钥或预生成主机私钥；不修改光猫配置，不配置自动启动。
 
+## 一键安装
+
+先在电脑上准备 Ed25519 SSH 公钥（例如 `cat ~/.ssh/zn_m180g.pub`；没有密钥时先执行 `ssh-keygen -t ed25519 -f ~/.ssh/zn_m180g`）。然后在光猫的 **csp Telnet shell** 中执行下面这一行，把引号里的内容替换成你的完整公钥（不是私钥）：
+
+```sh
+wget -O- https://raw.githubusercontent.com/eeelin/zn-m180g-tools/main/install.sh | sh -s -- --key 'ssh-ed25519 AAAA...你的完整公钥...'
+```
+
+也可使用 `curl -fsSL` 替代 `wget -O-`。需要先审阅脚本时，查看 [install.sh](install.sh)，或下载后执行 `sh install.sh --key-file /path/to/client.pub`。
+
+脚本固定安装 **v0.1.0**，以内置 SHA256 验证安装包及包内校验清单，安装到 `/usr/data/sshd-csp`，写入你提供的公钥，现场生成主机密钥，然后后台启动 `192.168.1.1:2222`。请核对输出的主机密钥指纹，再从电脑连接：
+
+```sh
+ssh -T -p 2222 -i ~/.ssh/zn_m180g csp@192.168.1.1
+```
+
+- 重复执行会拒绝覆盖已有目录，不会重置主机密钥或替换已有登录公钥。重新启动已有安装用 `nohup sh /usr/data/sshd-csp/start-sshd.sh > /usr/data/sshd-csp/sshd.log 2>&1 < /dev/null &`。
+- 可加 `--no-start` 仅安装，或 `--dir /绝对路径` 更换安装目录。
+- 不修改系统账号、防火墙或开机启动配置；安装及启动所需写操作只发生在安装目录和同级临时目录内（SSH 登录命令本身不受此限制）。
+- 若设备的旧 wget 不支持 HTTPS、证书校验失败或无法访问 GitHub，请在电脑下载 `install.sh` 和 **v0.1.0** 的 `zn-m180g-ssh.tar.gz`，按下文手动传入光猫，再执行 `sh install.sh --archive /path/to/zn-m180g-ssh.tar.gz --key 'ssh-ed25519 AAAA...你的完整公钥...'`。离线模式同样执行固定校验，不会关闭 TLS 校验来绕过下载错误。
+- 安装脚本通过了本地模拟测试，没有在光猫上执行安装。当前设备仍应使用 `ssh -T`，PTY 限制见安装说明。
+
 ## 下载与安装
 
 从 [GitHub Releases](https://github.com/eeelin/zn-m180g-tools/releases) 下载 `zn-m180g-ssh.tar.gz` 和对应 `.sha256`。
@@ -41,6 +63,9 @@ cd zn-m180g-tools
 源码包也可直接解压后运行 `./scripts/build.sh`。源码与工具链来自 [Dropbear](https://matt.ucc.asn.au/dropbear/dropbear.html) 和 [Bootlin](https://toolchains.bootlin.com/releases_armv5-eabi.html)。第三方许可证位于 `licenses/`，同时收入安装包。
 
 ## 本地验证
+
+一键安装脚本的测试可运行 `QEMU_ARM=/absolute/path/qemu-arm-static python3 scripts/test-installer.py`。需要 `dist/zn-m180g-ssh.tar.gz` 为已发布的 v0.1.0 包（若本地重新打包过，可先用 `gh release download v0.1.0 --pattern zn-m180g-ssh.tar.gz --dir dist --clobber` 下载）。测试在临时副本中只适配架构检查、QEMU 执行和 localhost 监听，验证实际解包、校验、生成密钥、启动及 SSH 登录，并覆盖拒绝和失败路径。
+
 
 安装 QEMU user-mode 和 OpenSSH 客户端后，以普通用户运行：
 

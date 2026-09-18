@@ -3,6 +3,16 @@
 本包是 Dropbear 2026.94（SSH 服务端及主机密钥生成器），不是 OpenSSH 的 sshd。
 编译和模拟测试均在电脑上进行；未向光猫上传、安装或运行任何程序，未主动执行写文件、修改配置、挂载或重启命令。Telnet 登录本身可能被设备自行记入日志。
 
+## 一键安装入口
+
+仓库根目录的 [install.sh](https://github.com/eeelin/zn-m180g-tools/blob/main/install.sh) 已自动化本文的下载、校验、公钥配置、主机密钥生成和后台启动步骤。在 csp Telnet shell 中执行，把引号中的内容换成电脑上的完整 Ed25519 公钥：
+
+```sh
+wget -O- https://raw.githubusercontent.com/eeelin/zn-m180g-tools/main/install.sh | sh -s -- --key 'ssh-ed25519 AAAA...你的完整公钥...'
+```
+
+默认固定安装 v0.1.0 到 `/usr/data/sshd-csp`，不会覆盖已有安装，不配置开机自启。可用 `--no-start` 仅安装；HTTPS 不可用时，先在电脑下载并传入脚本和 v0.1.0 安装包，再执行 `sh install.sh --archive /path/to/zn-m180g-ssh.tar.gz --key '你的完整公钥'`。此时不再需要执行下文的手动安装步骤。脚本仅经过本地 QEMU 测试，尚未在设备上执行。
+
 ## 1. 已读取的设备信息
 
 | 项目 | 实际结果 |
