@@ -1,4 +1,3 @@
 #!/bin/sh
-# Compatibility alias; now starts in the background as root.
 set -eu
 exec sh "$(dirname -- "$0")/service.sh" start "$@"

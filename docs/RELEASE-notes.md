@@ -1,11 +1,13 @@
-为中国移动 ZN-M180G / ZX279128S 提供静态 Dropbear 2026.94 SSH 服务端。
+v0.2.0 将 ZN-M180G 的 SSH 部署统一切换为 root，默认安装目录 /usr/data/sshd-root。
 
-- ARMv7 小端、EABI5 软浮点，静态链接 musl，不依赖设备的旧 glibc/OpenSSL。
-- 以现有 csp 账号运行，仅支持公钥登录，默认管理地址 192.168.1.1、端口 2222。
-- 安装包附启动脚本、中文安装说明、第三方许可证和 SHA256 清单。
-- 源码包包含上游源码、固定版本与校验值、构建/打包/验证脚本。
-- 本地 QEMU Cortex-A9 下通过公钥登录、命令执行和认证拒绝测试，结果见 SMOKE-TEST.txt。
+- 安装包加入 start.sh、stop.sh、status.sh、restart.sh 和统一 service.sh。
+- 启动时修正认证目录/文件权限，并在缺少 devpts 时尝试挂载；重复启动不产生额外服务。
+- 停止前核验进程身份和启动时间，避免陈旧 PID 文件误杀其他进程。
+- 安装器新增 --upgrade，保留原 authorized_keys 和 host_ed25519，支持迁移先前手动 root 部署。
+- 推荐电脑下载后通过局域网传入，使用 --archive 离线安装，解决光猫旧 TLS 无法访问 GitHub 的问题。
+- ARMv7 little-endian / EABI5 soft-float，静态 Dropbear 2026.94 + musl；仍仅支持公钥认证。
 
-限制：尚未在光猫上执行验证。已检查的设备没有挂载 devpts，当前 csp 账号请使用 ssh -T；完整交互终端需要额外处理，见 INSTALL-zh.md。不含 SFTP/scp，不配置开机自启。
+全新安装：sh install.sh --archive /var/tmp/zn-m180g-ssh.tar.gz --key 'ssh-ed25519 完整公钥'
+已有 root 安装：sh install.sh --archive /var/tmp/zn-m180g-ssh.tar.gz --upgrade
 
-下载 `zn-m180g-ssh.tar.gz` 后，使用同名 `.sha256` 验证完整性，按随附 `INSTALL-zh.md` 安装。包内不含设备密码、用户私钥或预生成主机密钥。
+本地通过 QEMU 二进制测试及隔离 user namespace 的 root 安装/服务控制测试。测试适配了 QEMU 执行和 localhost 监听，未由助手在光猫上部署。没有配置开机自启；重启后以 root 运行 start.sh。stop 只停止监听进程，现有连接可能继续。

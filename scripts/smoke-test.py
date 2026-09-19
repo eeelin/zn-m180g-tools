@@ -12,7 +12,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 qemu = os.environ.get('QEMU_ARM', 'qemu-arm-static')
 binary = str(ROOT / 'dist/zn-m180g-ssh/dropbearmulti')
-assert os.getuid() != 0, 'Run as a normal user to test the non-root deployment'
+assert os.getuid() != 0, 'Run as a normal user for the binary authentication smoke test'
 results = []
 with tempfile.TemporaryDirectory(prefix='zn-m180g-test-') as tmp:
     d = Path(tmp)

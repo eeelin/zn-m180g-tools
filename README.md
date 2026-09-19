@@ -1,92 +1,81 @@
 # ZN-M180G Tools
 
-中国移动 ZN-M180G 光猫工具，当前提供适配 ZX279128S 的静态 Dropbear SSH 服务端。
-
-- ARMv7 little-endian / EABI5 / soft-float，适配检查到的 Linux 4.1.25 环境。
-- Dropbear 2026.94 + musl 1.2.5，服务端与密钥生成器合并为约 358 KiB 的静态程序。
-- 使用现有 `csp` 用户和公钥认证，默认监听 `192.168.1.1:2222`。
-- 不包含设备账号密码、登录私钥或预生成主机私钥；不修改光猫配置，不配置自动启动。
-
-## 一键安装
-
-先在电脑上准备 Ed25519 SSH 公钥（例如 `cat ~/.ssh/zn_m180g.pub`；没有密钥时先执行 `ssh-keygen -t ed25519 -f ~/.ssh/zn_m180g`）。然后在光猫的 **csp Telnet shell** 中执行下面这一行，把引号里的内容替换成你的完整公钥（不是私钥）：
-
-```sh
-wget -O- https://raw.githubusercontent.com/eeelin/zn-m180g-tools/main/install.sh | sh -s -- --key 'ssh-ed25519 AAAA...你的完整公钥...'
-```
-
-也可使用 `curl -fsSL` 替代 `wget -O-`。需要先审阅脚本时，查看 [install.sh](install.sh)，或下载后执行 `sh install.sh --key-file /path/to/client.pub`。
-
-脚本固定安装 **v0.1.0**，以内置 SHA256 验证安装包及包内校验清单，安装到 `/usr/data/sshd-csp`，写入你提供的公钥，现场生成主机密钥，然后后台启动 `192.168.1.1:2222`。请核对输出的主机密钥指纹，再从电脑连接：
-
-```sh
-ssh -T -p 2222 -i ~/.ssh/zn_m180g csp@192.168.1.1
-```
-
-- 重复执行会拒绝覆盖已有目录，不会重置主机密钥或替换已有登录公钥。重新启动已有安装用 `nohup sh /usr/data/sshd-csp/start-sshd.sh > /usr/data/sshd-csp/sshd.log 2>&1 < /dev/null &`。
-- 可加 `--no-start` 仅安装，或 `--dir /绝对路径` 更换安装目录。
-- 不修改系统账号、防火墙或开机启动配置；安装及启动所需写操作只发生在安装目录和同级临时目录内（SSH 登录命令本身不受此限制）。
-- 若设备的旧 wget 不支持 HTTPS、证书校验失败或无法访问 GitHub，请在电脑下载 `install.sh` 和 **v0.1.0** 的 `zn-m180g-ssh.tar.gz`，按下文手动传入光猫，再执行 `sh install.sh --archive /path/to/zn-m180g-ssh.tar.gz --key 'ssh-ed25519 AAAA...你的完整公钥...'`。离线模式同样执行固定校验，不会关闭 TLS 校验来绕过下载错误。
-- 安装脚本通过了本地模拟测试，没有在光猫上执行安装。当前设备仍应使用 `ssh -T`，PTY 限制见安装说明。
+中国移动 ZN-M180G / ZX279128S 的静态 Dropbear SSH 服务端。**从 v0.2.0 起统一使用 root 安装和启动**，默认目录 `/usr/data/sshd-root`，地址 `192.168.1.1:2222`，仅公钥认证。
 
 ## 下载与安装
 
-从 [GitHub Releases](https://github.com/eeelin/zn-m180g-tools/releases) 下载 `zn-m180g-ssh.tar.gz` 和对应 `.sha256`。
+从 [Releases](https://github.com/eeelin/zn-m180g-tools/releases) 下载 **同一个版本**的 `install.sh` 和 `zn-m180g-ssh.tar.gz`。
 
-完整步骤：[中文安装说明](docs/INSTALL-zh.md)。
-
-当前检查到的设备没有挂载 devpts，现有账号也不是 root，请使用 `ssh -T`。完整 PTY 终端的前提与处理方式见安装说明。SSH 登录后的用户名是 `csp`，权限不会提升。
-
-## 本地构建
-
-构建环境：Linux x86_64，安装 `curl`、`make`、`tar`、`xz`、`bzip2`、`sha256sum`、`python3` 以及常见 POSIX 工具。不需要系统 GCC 或 root；脚本下载固定版本的交叉工具链。
+这台光猫的旧 TLS 无法直接连接 GitHub，推荐在电脑下载，再通过局域网 HTTP 传入光猫。完整步骤、升级方式与重启说明见 [中文安装说明](docs/INSTALL-zh.md)。在 root shell 中安装：
 
 ```sh
-git clone https://github.com/eeelin/zn-m180g-tools.git
-cd zn-m180g-tools
+sh /var/tmp/install.sh --archive /var/tmp/zn-m180g-ssh.tar.gz \
+  --key 'ssh-ed25519 AAAA...你的完整公钥...'
+```
+
+已有 `/usr/data/sshd-root` 的用户使用下面的升级命令，**保留 authorized_keys 和 host_ed25519**，不需要重新传公钥：
+
+```sh
+sh /var/tmp/install.sh --archive /var/tmp/zn-m180g-ssh.tar.gz --upgrade
+```
+
+安装器校验内置 SHA256 和包内清单，生成新的主机密钥或保留旧密钥，并启动服务。`--no-start` 仅安装（升级时仍会先停止旧监听服务）。不要将 csp 的旧目录当成 root 目录升级，改为全新 root 安装。
+
+支持现代 TLS 的设备也可以使用：
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/eeelin/zn-m180g-tools/main/install.sh | sh -s -- --key 'ssh-ed25519 AAAA...你的完整公钥...'
+```
+
+## 服务控制
+
+安装包内提供以下脚本，不需要额外 nohup 或 `&`：
+
+```sh
+sh /usr/data/sshd-root/start.sh
+sh /usr/data/sshd-root/status.sh
+sh /usr/data/sshd-root/stop.sh
+sh /usr/data/sshd-root/restart.sh
+```
+
+- start 在后台启动，并修正 root 目录/密钥权限，避免 `.` 目录权限错误；重复启动不会新增进程。
+- start 在 `/dev/pts` 尚未挂载 devpts 时尝试挂载。失败会提示使用 `ssh -T`，不阻止无 PTY SSH。
+- stop 核对进程的程序、工作目录、UID、命令参数及启动时间，不向 PID 文件中无关的进程发送信号。只停止监听主进程，现有 SSH 会话可能继续。
+- status 运行时返回 0，未运行或 PID 无效时返回 3。
+- restart 先停止再启动；stop 不卸载共享的 devpts。
+- `service.sh start|stop|status|restart` 是统一入口，`start-sshd.sh` 为兼容别名。
+
+从电脑连接，首次核对安装器显示的主机密钥指纹：
+
+```sh
+ssh -p 2222 -i ~/.ssh/zn_m180g root@192.168.1.1
+```
+
+未配置开机自启。重启后以 root 执行 `start.sh` 即可尝试恢复挂载并启动服务；`/usr/data` 文件通常保留，`/var/tmp` 文件不保留。固件升级、恢复出厂及 root 获取方式的持久性不在本工具控制范围内。
+
+## 本地构建与测试
+
+构建环境为 Linux x86_64，需要 curl、make、tar、xz、bzip2、sha256sum、python3。无需系统 GCC 或 root。
+
+```sh
 ./scripts/build.sh
+QEMU_ARM=/path/to/qemu-arm-static python3 scripts/smoke-test.py
+QEMU_ARM=/path/to/qemu-arm-static python3 scripts/test-installer.py
 ```
 
-脚本先核对 `sources.sha256`，再解压、编译和打包。默认并行 4 个任务，可用 `JOBS=2 ./scripts/build.sh` 调整。
+构建脚本校验固定版本的 Dropbear 2026.94 和 Bootlin GCC 14.3.0 / musl 1.2.5 工具链。目标为 ARMv7 小端、EABI5 软浮点，静态链接，不依赖光猫的旧 glibc/OpenSSL。未修改上游源码，编译选项在 `config/localoptions.h`。第三方许可证见 `licenses/`。
 
-下载缓存位于 `downloads/`，源码与工具链位于 `build/`，产物位于 `dist/`，这些目录均不提交进 Git。`config/localoptions.h` 存放定制选项；没有修改上游源码。
+产物位于 `dist/`：安装包、源码包、对应 SHA256、带安装包固定校验值的 `install.sh`。构建缓存和产物不进入 Git。源码包包含上游源码和完整构建脚本，解压后可执行 `scripts/build.sh`。
 
-主要产物：
-
-| 文件 | 用途 |
-| --- | --- |
-| `dist/zn-m180g-ssh.tar.gz` | 设备安装包，包含二进制、启动脚本、说明、许可证和内部校验清单 |
-| `dist/zn-m180g-ssh-source.tar.gz` | 原始 Dropbear 源码包、构建/打包/测试脚本及配置；工具链在构建时下载 |
-| `dist/*.sha256` | 发布包 SHA256 |
-| `dist/zn-m180g-ssh/ELF-info.txt` | ELF 架构及程序段信息 |
-
-源码包也可直接解压后运行 `./scripts/build.sh`。源码与工具链来自 [Dropbear](https://matt.ucc.asn.au/dropbear/dropbear.html) 和 [Bootlin](https://toolchains.bootlin.com/releases_armv5-eabi.html)。第三方许可证位于 `licenses/`，同时收入安装包。
-
-## 本地验证
-
-一键安装脚本的测试可运行 `QEMU_ARM=/absolute/path/qemu-arm-static python3 scripts/test-installer.py`。需要 `dist/zn-m180g-ssh.tar.gz` 为已发布的 v0.1.0 包（若本地重新打包过，可先用 `gh release download v0.1.0 --pattern zn-m180g-ssh.tar.gz --dir dist --clobber` 下载）。测试在临时副本中只适配架构检查、QEMU 执行和 localhost 监听，验证实际解包、校验、生成密钥、启动及 SSH 登录，并覆盖拒绝和失败路径。
-
-
-安装 QEMU user-mode 和 OpenSSH 客户端后，以普通用户运行：
-
-```sh
-python3 scripts/smoke-test.py
-# 如 QEMU 不在 PATH 中：
-QEMU_ARM=/absolute/path/qemu-arm-static python3 scripts/smoke-test.py
-```
-
-测试启动本地 ARM Cortex-A9 模拟进程，只监听 localhost 的临时端口，检查公钥登录、命令执行，以及错误密钥/错误用户/可写认证目录被拒绝。测试密钥位于临时目录并自动清理；结果写入 `dist/SMOKE-TEST.txt`。
-
-QEMU user-mode 使用宿主内核，不等同于真机 Linux 4.1.25 测试。没有在光猫上上传或执行产物；原始检查和验证记录见 [VALIDATION-original.txt](docs/VALIDATION-original.txt)。
+二进制认证测试使用 QEMU；root 安装和服务控制测试使用隔离的 Linux user namespace（需要启用 unprivileged user namespaces），覆盖安装/升级、密钥保留、启动/重复启动、停止/重启、陈旧 PID、无关进程保护及错误安装包。user namespace 中无法模拟固件全部行为；测试适配 QEMU 启动、程序路径和 localhost 端口，不操作光猫。原始设备检查记录见 `docs/VALIDATION-original.txt`。
 
 ## 发布
 
-仓库代码提交后，重新构建并运行测试，再发布：
-
 ```sh
 ./scripts/build.sh
-python3 scripts/smoke-test.py
-./scripts/release.sh v0.1.0
+cp dist/install.sh install.sh
+# 运行上面的测试，然后提交所有修改
+./scripts/release.sh v0.2.0
 ```
 
-需要配置 Git 和 GitHub CLI 的仓库写权限。发布脚本将当前提交推送到 `main`，然后在该提交上创建带安装包、源码包、校验值、测试结果和中文安装说明的 Release；不会覆盖已有 Release。
+发布脚本校验安装器与安装包、版本号和测试产物，推送当前提交并创建 Release，包含控制脚本的安装包、源码包、独立安装器、说明及测试报告。不会覆盖已有 Release。
